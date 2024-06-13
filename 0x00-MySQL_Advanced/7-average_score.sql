@@ -1,7 +1,7 @@
 -- Script that creates a stored procedure ComputeAverageScoreForUser
 -- that computes the average score of a student
-DELIMITER $$
 DROP PROCEDURE IF EXISTS ComputeAverageScoreForUser;
+DELIMITER $$
 CREATE PROCEDURE ComputeAverageScoreForUser(
     IN user_id INT
 )
