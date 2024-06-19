@@ -72,16 +72,16 @@ class Cache:
             result byte  into correct data type
         """
         client = self._redis
-        value = client.get(key)
-        if not value:
+        data = client.get(key)
+        if not data:
             return
         if fn is int:
-            return self.get_int(value)
+            return self.get_int(data)
         if fn is str:
-            return self.get_str(value)
+            return self.get_str(data)
         if callable(fn):
-            return fn(value)
-        return value
+            return fn(data)
+        return data
 
     def get_str(self, data: bytes) -> str:
         """ Converts bytes to string """
