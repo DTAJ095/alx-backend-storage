@@ -9,7 +9,7 @@ from typing import Any, Callable, Optional, Union
 def count_calls(method: Callable) -> Callable:
     """ count calls """
     key = method.__qualname__
-    
+
     @wraps(method)
     def wrapper(self: Any, *args, **kwargs) -> str:
         """ Wraps called method and adds its call count redis before execution
@@ -22,7 +22,7 @@ def count_calls(method: Callable) -> Callable:
 def call_history(method: Callable) -> Callable:
     """ Decorator for Cache class method to track args
     """
-    
+
     @wraps(method)
     def wrapper(self: Any, *args) -> str:
         """ Wraps called method and tracks its passed argument by storing
