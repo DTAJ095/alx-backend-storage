@@ -1,30 +1,96 @@
+# #!/usr/bin/env python3
+# """ Writing strings to redis """
+# import redis
+# from uuid import uuid4
+# from typing import Callable, Union, Optional
+# from functools import wraps
+
+
+# @cache_decorator
+# def count_calls(method: Callable) -> Callable:
+#     """ Count calls decorator """
+#     key = method.__qualname__
+#     @wraps(method)
+#     def wrapper(self, *args, **kwargs):
+#         """ Wrapper function """
+#         self._redis.incr(key)
+#         return method(self, *args, **kwargs)
+#     return wrapper
+
+# @history_decorator
+# def call_history(method: Callable) -> Callable:
+#     """ Store the history of input and output for
+#     a particular function
+#     """ 
+#     @wraps(method)
+#     def wrapper(self, *args, **kwargs):
+#         """ Wrapper function """
+#         self._redis.rpush(f'{method.__qualname__}:inputs', str(args))
+#         output = method(self, *args)
+#         self._redis.rpush(f'{method.__qualname__}:outputs', output)
+#         return output
+#     return wrapper
+
+
+# class Cache():
+#     """ Cache class """
+#     def __init__(self):
+#         """ Constructor method """
+#         self._redis = redis.Redis()
+#         self._redis.flushdb()
+    
+#     @call_history    
+#     @count_calls
+#     def store(self, data: Union[str, bytes, int, float]) -> str:
+#         """ Store method """
+#         key = str(uuid4())
+#         self._redis.set(key, data)
+#         return key
+    
+#     def get(self, key: str, fn: Optional[Callable]) -> bytes:
+#         """ Get method """
+#         data = self._redis.get(key)
+#         return data
+    
+#     def get_str(self, key: str) -> str:
+#         """ Get str method """
+#         data = self._redis.get(key)
+#         return data.decode('utf-8')
+    
+#     def get_int(self, key: str) -> int:
+#         """ Get int method """
+#         data = self._redis.get(key)
+#         return int(data)
+
 #!/usr/bin/env python3
-""" Writing strings to redis """
+""" Redis client module
+"""
 import redis
 from uuid import uuid4
-from typing import Callable, Union, Optional
 from functools import wraps
+from typing import Any, Callable, Optional, Union
 
 
-@cache_decorator
 def count_calls(method: Callable) -> Callable:
-    """ Count calls decorator """
-    key = method.__qualname__
+    """ Decorator for Cache class methods to track call count
+    """
     @wraps(method)
-    def wrapper(self, *args, **kwargs):
-        """ Wrapper function """
-        self._redis.incr(key)
+    def wrapper(self: Any, *args, **kwargs) -> str:
+        """ Wraps called method and adds its call count redis before execution
+        """
+        self._redis.incr(method.__qualname__)
         return method(self, *args, **kwargs)
     return wrapper
 
-@history_decorator
+
 def call_history(method: Callable) -> Callable:
-    """ Store the history of input and output for
-    a particular function
-    """ 
+    """ Decorator for Cache class method to track args
+    """
     @wraps(method)
-    def wrapper(self, *args, **kwargs):
-        """ Wrapper function """
+    def wrapper(self: Any, *args) -> str:
+        """ Wraps called method and tracks its passed argument by storing
+            them to redis
+        """
         self._redis.rpush(f'{method.__qualname__}:inputs', str(args))
         output = method(self, *args)
         self._redis.rpush(f'{method.__qualname__}:outputs', output)
@@ -32,32 +98,63 @@ def call_history(method: Callable) -> Callable:
     return wrapper
 
 
-class Cache():
-    """ Cache class """
-    def __init__(self):
-        """ Constructor method """
+def replay(fn: Callable) -> None:
+    """ Check redis for how many times a function was called and display:
+            - How many times it was called
+            - Function args and output for each call
+    """
+    client = redis.Redis()
+    calls = client.get(fn.__qualname__).decode('utf-8')
+    inputs = [input.decode('utf-8') for input in
+              client.lrange(f'{fn.__qualname__}:inputs', 0, -1)]
+    outputs = [output.decode('utf-8') for output in
+               client.lrange(f'{fn.__qualname__}:outputs', 0, -1)]
+    print(f'{fn.__qualname__} was called {calls} times:')
+    for input, output in zip(inputs, outputs):
+        print(f'{fn.__qualname__}(*{input}) -> {output}')
+
+
+class Cache:
+    """ Caching class
+    """
+    def __init__(self) -> None:
+        """ Initialize new cache object
+        """
         self._redis = redis.Redis()
         self._redis.flushdb()
-    
-    @call_history    
+
+    @call_history
     @count_calls
-    def store(self, data: Union[str, bytes, int, float]) -> str:
-        """ Store method """
+    def store(self, data: Union[str, bytes,  int,  float]) -> str:
+        """ Stores data in redis with randomly generated key
+        """
         key = str(uuid4())
-        self._redis.set(key, data)
+        client = self._redis
+        client.set(key, data)
         return key
-    
-    def get(self, key: str, fn: Optional[Callable]) -> bytes:
-        """ Get method """
-        data = self._redis.get(key)
-        return data
-    
-    def get_str(self, key: str) -> str:
-        """ Get str method """
-        data = self._redis.get(key)
+
+    def get(self, key: str, fn: Optional[Callable] = None) -> Any:
+        """ Gets key's value from redis and converts
+            result byte  into correct data type
+        """
+        client = self._redis
+        value = client.get(key)
+        if not value:
+            return
+        if fn is int:
+            return self.get_int(value)
+        if fn is str:
+            return self.get_str(value)
+        if callable(fn):
+            return fn(value)
+        return value
+
+    def get_str(self, data: bytes) -> str:
+        """ Converts bytes to string
+        """
         return data.decode('utf-8')
-    
-    def get_int(self, key: str) -> int:
-        """ Get int method """
-        data = self._redis.get(key)
+
+    def get_int(self, data: bytes) -> int:
+        """ Converts bytes to integers
+        """
         return int(data)
