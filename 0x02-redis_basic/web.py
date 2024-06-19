@@ -6,17 +6,17 @@ from functools import wraps
 from typing import Callable
 
 
-def track_get_page(func: Callable) -> Callable:
+def track_get_page(fn: Callable) -> Callable:
     """ get_page decorator """
 
-    @wraps(func)
+    @wraps(fn)
     def wrapper(url: str) -> str:
         """ wrapper function """
         redis.Redis().incr(f'count:{url}')
         cached_page = redis.Redis().get(f'{url}')
         if cached_page:
             return cached_page.decode('utf-8')
-        response = func(url)
+        response = fn(url)
         redis.Redis().set(f'{url}', response, 10)
         return response
     return wrapper
