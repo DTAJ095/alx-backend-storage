@@ -67,7 +67,7 @@ class Cache:
         client.set(key, data)
         return key
 
-    def get(self, key: str, func: Optional[Callable] = None) -> Any:
+    def get(self, key: str, fn: Optional[Callable] = None) -> Any:
         """ Gets key's value from redis and converts
             result byte  into correct data type
         """
@@ -75,12 +75,12 @@ class Cache:
         value = client.get(key)
         if not value:
             return
-        if func is int:
+        if fn is int:
             return self.get_int(value)
-        if func is str:
+        if fn is str:
             return self.get_str(value)
-        if callable(func):
-            return func(value)
+        if callable(fn):
+            return fn(value)
         return value
 
     def get_str(self, data: bytes) -> str:
