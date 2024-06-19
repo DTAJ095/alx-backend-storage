@@ -6,18 +6,19 @@ from functools import wraps
 from typing import Callable
 
 
-def track_get_page(func: Callable) -> Callable:
+def track_get_page(method: Callable) -> Callable:
     """ get_page decorator """
 
-    @wraps(func)
+    @wraps(method)
     def wrapper(url: str) -> str:
         """ wrapper function """
         redis.Redis().incr(f'count:{url}')
-        cached_page = redis.Redis().get(f'{url}')
+        cached_page = redis.Redis().get(f'cached_page:{url}')
         if cached_page:
             return cached_page.decode('utf-8')
-        response = func(url)
-        redis.Redis().set(f'{url}', response, 10)
+        response = method(url)
+        redis.Redis().set(f'count:{url}', 0)
+        redis.Redis().setex(f'cached_page:{url}', response, 10)
         return response
     return wrapper
 
